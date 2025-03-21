@@ -86,6 +86,19 @@ def simulate_trades(intraday_data, initial_investment, trading_frequency='10min'
                 (df['timestamp'].dt.hour == hour) & 
                 (df['timestamp'].dt.minute == minute)
             ]
+            
+            # If no data for this specific minute, try to find the closest available data point
+            if interval_data.empty:
+                # Look for closest minute in this hour
+                hour_data = df[df['timestamp'].dt.hour == hour]
+                if not hour_data.empty:
+                    closest_minute = hour_data['timestamp'].dt.minute.iloc[
+                        (hour_data['timestamp'].dt.minute - minute).abs().argsort()[0]
+                    ]
+                    interval_data = df[
+                        (df['timestamp'].dt.hour == hour) & 
+                        (df['timestamp'].dt.minute == closest_minute)
+                    ]
         else:
             # For other intervals, filter by hour and minute range
             interval_data = df[
