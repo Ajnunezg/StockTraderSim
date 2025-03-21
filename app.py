@@ -224,31 +224,39 @@ if submit_button:
                         # Create a strategy comparison chart
                         st.subheader("Strategy Performance Throughout the Day")
                         
-                        # Calculate values over time for both strategies
-                        # First, create a dataframe with timestamps
-                        performance_df = pd.DataFrame(index=intraday_data['timestamp'])
+                        # Create performance DataFrame with timestamps
+                        performance_df = pd.DataFrame(index=intraday_data.index)
+                        performance_df.index = intraday_data['timestamp']
                         
                         # Calculate buy and hold value over time
                         first_price = intraday_data.iloc[0]['open']
                         buy_hold_shares = investment_amount / first_price
                         performance_df['buy_hold_value'] = intraday_data['close'] * buy_hold_shares
                         
-                        # Calculate arbitrage strategy value over time
-                        # Start with initial investment
+                        # Initialize arbitrage value with cash
                         performance_df['arbitrage_value'] = investment_amount
+                        performance_df['shares_held'] = 0.0
                         
                         # Update value based on trades
                         if not trades.empty:
+                            current_cash = investment_amount
+                            current_shares = 0.0
+                            
                             for idx, trade in trades.iterrows():
-                                # Find all timestamps after this trade
                                 mask = performance_df.index >= trade['timestamp']
                                 
                                 if trade['action'] == 'BUY':
-                                    # When buying, cash decreases but share value increases
-                                    performance_df.loc[mask, 'arbitrage_value'] = trade['shares'] * intraday_data.loc[mask, 'close']
+                                    current_cash = 0  # All cash used for purchase
+                                    current_shares = trade['shares']
                                 elif trade['action'] == 'SELL':
-                                    # When selling, we convert to cash
-                                    performance_df.loc[mask, 'arbitrage_value'] = trade['shares'] * trade['price']
+                                    current_cash = trade['shares'] * trade['price']
+                                    current_shares = 0
+                                
+                                # Update share value portion
+                                if current_shares > 0:
+                                    performance_df.loc[mask, 'arbitrage_value'] = current_shares * intraday_data.loc[mask.index, 'close']
+                                else:
+                                    performance_df.loc[mask, 'arbitrage_value'] = current_cash
                         
                         # Create the comparison chart
                         fig = go.Figure()
