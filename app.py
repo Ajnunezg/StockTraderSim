@@ -384,34 +384,70 @@ if submit_button:
                             perf_df = pd.DataFrame(index=intraday_data['timestamp'])
                             perf_df['value'] = investment_amount
                             
-                            # Initialize with initial investment
+                            # Initialize variables
                             current_cash = investment_amount
                             current_shares = 0
                             
-                            # Process each trade and update portfolio value
-                            if not trades_for_freq.empty:
-                                # Create a copy of trades sorted by timestamp to ensure proper sequence
-                                sorted_trades = trades_for_freq.sort_values('timestamp')
-                                
-                                for idx, trade in sorted_trades.iterrows():
-                                    # Make sure the timestamp exists in the performance dataframe
-                                    if trade['timestamp'] not in perf_df.index:
-                                        continue
-                                        
-                                    # Find timestamps after this trade (inclusive)
-                                    mask = perf_df.index >= trade['timestamp']
+                            # Special handling for 1-minute frequency which needs more precise tracking
+                            if freq == '1min':
+                                # Make sure trades are sorted by timestamp
+                                if not trades_for_freq.empty:
+                                    sorted_trades = trades_for_freq.sort_values('timestamp')
                                     
-                                    if trade['action'] == 'BUY':
-                                        # Convert cash to shares
-                                        current_shares = trade['shares']
-                                        current_cash = 0
+                                    # Process each trade
+                                    for i, trade in sorted_trades.iterrows():
+                                        # Find the closest timestamp in performance dataframe
+                                        closest_idx = perf_df.index.get_indexer([trade['timestamp']], method='nearest')[0]
+                                        closest_ts = perf_df.index[closest_idx]
                                         
-                                        # Update values after this point
-                                        future_prices = intraday_data[intraday_data['timestamp'] >= trade['timestamp']]
-                                        for _, row in future_prices.iterrows():
-                                            # Check if timestamp exists in performance dataframe
-                                            if row['timestamp'] in perf_df.index:
-                                                perf_df.at[row['timestamp'], 'value'] = current_shares * row['close']
+                                        # For all timestamps after this point
+                                        after_mask = perf_df.index >= closest_ts
+                                        
+                                        if trade['action'] == 'BUY':
+                                            # Calculate portfolio value after buy (all in shares)
+                                            shares_held = trade['shares']
+                                            
+                                            # Update all future timestamps with current share value
+                                            for ts in perf_df.index[after_mask]:
+                                                # Find the closest price data point
+                                                price_idx = intraday_data['timestamp'].searchsorted(ts)
+                                                if price_idx >= len(intraday_data):
+                                                    price_idx = len(intraday_data) - 1
+                                                    
+                                                price = intraday_data.iloc[price_idx]['close']
+                                                perf_df.at[ts, 'value'] = shares_held * price
+                                                
+                                        elif trade['action'] == 'SELL':
+                                            # After selling, portfolio is all cash
+                                            cash_value = trade['shares'] * trade['price']
+                                            
+                                            # Update all timestamps after the sell with cash value
+                                            perf_df.loc[after_mask, 'value'] = cash_value
+                            else:
+                                # Process trades for other frequencies
+                                if not trades_for_freq.empty:
+                                    # Create a copy of trades sorted by timestamp to ensure proper sequence
+                                    sorted_trades = trades_for_freq.sort_values('timestamp')
+                                    
+                                    for idx, trade in sorted_trades.iterrows():
+                                        # Make sure the timestamp exists in the performance dataframe
+                                        if trade['timestamp'] not in perf_df.index:
+                                            continue
+                                            
+                                        # Find timestamps after this trade (inclusive)
+                                        mask = perf_df.index >= trade['timestamp']
+                                        
+                                        if trade['action'] == 'BUY':
+                                            # Convert cash to shares
+                                            current_shares = trade['shares']
+                                            current_cash = 0
+                                            
+                                            # Update values after this point
+                                            future_prices = intraday_data[intraday_data['timestamp'] >= trade['timestamp']]
+                                            for _, row in future_prices.iterrows():
+                                                # Check if timestamp exists in performance dataframe
+                                                if row['timestamp'] in perf_df.index:
+                                                    perf_df.at[row['timestamp'], 'value'] = current_shares * row['close']
                                             
                                     elif trade['action'] == 'SELL':
                                         # Convert shares to cash

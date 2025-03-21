@@ -26,7 +26,7 @@ def simulate_trades(intraday_data, initial_investment, trading_frequency='10min'
     trades = []
 
     # Make a copy of the DataFrame to avoid modifying the original
-    df = intraday_data.copy()
+    df = intraday_data.copy().reset_index(drop=True)
 
     # Create intervals throughout the trading day based on trading frequency
     trading_intervals = []
@@ -60,99 +60,136 @@ def simulate_trades(intraday_data, initial_investment, trading_frequency='10min'
             for minute in range(0, 60, 10):
                 trading_intervals.append((hour, minute))
 
-    for interval in trading_intervals:
-        hour, minute = interval
+    # For 1-minute frequency, use a different approach
+    if trading_frequency == '1min':
+        # Sort data by timestamp to ensure chronological order
+        df = df.sort_values('timestamp').reset_index(drop=True)
         
-        # Calculate interval duration in minutes
-        if trading_frequency == 'hourly':
-            interval_duration = 60
-        elif trading_frequency == '30min':
-            interval_duration = 30
-        elif trading_frequency == '15min':
-            interval_duration = 15
-        elif trading_frequency == '10min':
-            interval_duration = 10
-        elif trading_frequency == '5min':
-            interval_duration = 5
-        elif trading_frequency == '1min':
-            interval_duration = 1
-        else:
-            interval_duration = 10
-        
-        # Filter data for the current interval
-        if trading_frequency == '1min':
-            # For 1-minute intervals, filter exactly by hour and minute
-            interval_data = df[
-                (df['timestamp'].dt.hour == hour) & 
-                (df['timestamp'].dt.minute == minute)
-            ]
+        # Process each minute separately
+        for i in range(len(df) - 1):
+            current_price = df.iloc[i]['low']
+            # Look ahead to find the highest price in future data points
+            future_prices = df.iloc[i+1:]['high']
             
-            # If no data for this specific minute, try to find the closest available data point
-            if interval_data.empty:
-                # Look for closest minute in this hour
-                hour_data = df[df['timestamp'].dt.hour == hour]
-                if not hour_data.empty:
-                    closest_minute = hour_data['timestamp'].dt.minute.iloc[
-                        (hour_data['timestamp'].dt.minute - minute).abs().argsort()[0]
-                    ]
-                    interval_data = df[
-                        (df['timestamp'].dt.hour == hour) & 
-                        (df['timestamp'].dt.minute == closest_minute)
-                    ]
-        else:
-            # For other intervals, filter by hour and minute range
+            if not future_prices.empty:
+                max_future_price = future_prices.max()
+                max_idx = df.iloc[i+1:]['high'].idxmax() + i + 1
+                
+                # If there's a profit opportunity
+                if max_future_price > current_price:
+                    # Calculate potential profit
+                    profit_pct = (max_future_price - current_price) / current_price
+                    
+                    # Only trade if there's a meaningful profit (at least 0.05%)
+                    if profit_pct >= 0.0005:
+                        # Buy at current price
+                        shares_to_buy = cash / current_price
+                        
+                        # Record buy trade
+                        trades.append({
+                            'timestamp': df.iloc[i]['timestamp'],
+                            'action': 'BUY',
+                            'price': current_price,
+                            'shares': shares_to_buy,
+                            'gain_loss': 0
+                        })
+                        
+                        # Update portfolio
+                        cash = 0
+                        shares = shares_to_buy
+                        
+                        # Sell at future maximum price
+                        sell_price = max_future_price
+                        sell_value = shares * sell_price
+                        gain_loss = sell_value - (current_price * shares_to_buy)
+                        
+                        # Record sell trade
+                        trades.append({
+                            'timestamp': df.iloc[max_idx]['timestamp'],
+                            'action': 'SELL',
+                            'price': sell_price,
+                            'shares': shares,
+                            'gain_loss': gain_loss
+                        })
+                        
+                        # Update portfolio
+                        cash = sell_value
+                        shares = 0
+                        
+                        # Skip ahead to after the sell point
+                        i = max_idx
+    else:
+        # Original approach for other frequencies
+        for interval in trading_intervals:
+            hour, minute = interval
+            
+            # Calculate interval duration in minutes
+            if trading_frequency == 'hourly':
+                interval_duration = 60
+            elif trading_frequency == '30min':
+                interval_duration = 30
+            elif trading_frequency == '15min':
+                interval_duration = 15
+            elif trading_frequency == '10min':
+                interval_duration = 10
+            elif trading_frequency == '5min':
+                interval_duration = 5
+            else:
+                interval_duration = 10
+            
+            # Filter data for the current interval
             interval_data = df[
                 (df['timestamp'].dt.hour == hour) & 
                 (df['timestamp'].dt.minute >= minute) & 
                 (df['timestamp'].dt.minute < minute + interval_duration)
             ]
 
-        if interval_data.empty:
-            continue
+            if interval_data.empty:
+                continue
 
-        # Find the lowest and highest prices within this interval
-        lowest_idx = interval_data['low'].idxmin()
-        highest_idx = interval_data['high'].idxmax()
+            # Find the lowest and highest prices within this interval
+            lowest_idx = interval_data['low'].idxmin()
+            highest_idx = interval_data['high'].idxmax()
 
-        # Check if the lowest price comes before the highest (opportunity for profit)
-        if lowest_idx < highest_idx:
-            buy_data = df.loc[lowest_idx]
-            sell_data = df.loc[highest_idx]
+            # Check if the lowest price comes before the highest (opportunity for profit)
+            if lowest_idx < highest_idx:
+                buy_data = df.loc[lowest_idx]
+                sell_data = df.loc[highest_idx]
 
-            # Calculate the number of shares to buy (all available cash)
-            buy_price = buy_data['low']
-            shares_to_buy = cash / buy_price
+                # Calculate the number of shares to buy (all available cash)
+                buy_price = buy_data['low']
+                shares_to_buy = cash / buy_price
 
-            # Record the buy trade
-            trades.append({
-                'timestamp': buy_data['timestamp'],
-                'action': 'BUY',
-                'price': buy_price,
-                'shares': shares_to_buy,
-                'gain_loss': 0  # No gain/loss on buy
-            })
+                # Record the buy trade
+                trades.append({
+                    'timestamp': buy_data['timestamp'],
+                    'action': 'BUY',
+                    'price': buy_price,
+                    'shares': shares_to_buy,
+                    'gain_loss': 0  # No gain/loss on buy
+                })
 
-            # Update portfolio
-            cash = 0
-            shares += shares_to_buy
+                # Update portfolio
+                cash = 0
+                shares += shares_to_buy
 
-            # Calculate the selling proceeds
-            sell_price = sell_data['high']
-            sell_value = shares * sell_price
-            gain_loss = sell_value - (buy_price * shares_to_buy)
+                # Calculate the selling proceeds
+                sell_price = sell_data['high']
+                sell_value = shares * sell_price
+                gain_loss = sell_value - (buy_price * shares_to_buy)
 
-            # Record the sell trade
-            trades.append({
-                'timestamp': sell_data['timestamp'],
-                'action': 'SELL',
-                'price': sell_price,
-                'shares': shares,
-                'gain_loss': gain_loss
-            })
+                # Record the sell trade
+                trades.append({
+                    'timestamp': sell_data['timestamp'],
+                    'action': 'SELL',
+                    'price': sell_price,
+                    'shares': shares,
+                    'gain_loss': gain_loss
+                })
 
-            # Update portfolio
-            cash = sell_value
-            shares = 0
+                # Update portfolio
+                cash = sell_value
+                shares = 0
 
     # Convert trades to DataFrame
     trades_df = pd.DataFrame(trades)
