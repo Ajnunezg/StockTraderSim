@@ -27,7 +27,37 @@ with st.sidebar.form("input_form"):
     ticker = st.text_input("Stock Ticker Symbol (e.g., AAPL)", value="AAPL")
     date = st.date_input("Select Date", value=datetime.now() - timedelta(days=7))
     investment_amount = st.number_input("Initial Investment Amount ($)", value=10000.0, min_value=100.0)
-    api_key = st.text_input("Polygon.io API Key", type="password")
+    st.markdown("""
+    <style>
+    .tooltip {
+        position: relative;
+        display: inline-block;
+        cursor: help;
+    }
+    .tooltip .tooltiptext {
+        visibility: hidden;
+        width: 300px;
+        background-color: #333;
+        color: #fff;
+        text-align: center;
+        border-radius: 6px;
+        padding: 10px;
+        position: absolute;
+        z-index: 1;
+        bottom: 125%;
+        left: 50%;
+        margin-left: -150px;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    .tooltip:hover .tooltiptext {
+        visibility: visible;
+        opacity: 1;
+    }
+    </style>
+    <div>Polygon.io API Key <span class="tooltip">*<span class="tooltiptext">You need a Polygon.io API key to fetch stock data. Visit <a href="https://polygon.io/" target="_blank" style="color: #00BFFF;">polygon.io</a> to create a free account and get your API key.</span></span></div>
+    """, unsafe_allow_html=True)
+    api_key = st.text_input("", type="password", label_visibility="collapsed")
     
     submit_button = st.form_submit_button("Analyze Stock")
 
