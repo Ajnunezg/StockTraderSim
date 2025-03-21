@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 
-def simulate_trades(intraday_data, initial_investment):
+def simulate_trades(intraday_data, initial_investment, trading_frequency='10min'):
     """
     Simulate intraday arbitrage trades to maximize profit.
 
@@ -12,6 +12,8 @@ def simulate_trades(intraday_data, initial_investment):
         DataFrame containing intraday stock data
     initial_investment : float
         Initial investment amount
+    trading_frequency : str
+        Frequency of trading ('hourly', '30min', '15min', '10min', '5min', '1min')
 
     Returns:
     --------
@@ -26,19 +28,62 @@ def simulate_trades(intraday_data, initial_investment):
     # Make a copy of the DataFrame to avoid modifying the original
     df = intraday_data.copy()
 
-    # Create 10-minute intervals throughout the trading day
+    # Create intervals throughout the trading day based on trading frequency
     trading_intervals = []
-    for hour in range(9, 16):  # 9 AM to 3 PM
-        for minute in range(0, 60, 10):
-            trading_intervals.append((hour, minute))
+    
+    if trading_frequency == 'hourly':
+        for hour in range(9, 16):  # 9 AM to 3 PM
+            trading_intervals.append((hour, 0))
+    elif trading_frequency == '30min':
+        for hour in range(9, 16):  # 9 AM to 3 PM
+            for minute in range(0, 60, 30):
+                trading_intervals.append((hour, minute))
+    elif trading_frequency == '15min':
+        for hour in range(9, 16):  # 9 AM to 3 PM
+            for minute in range(0, 60, 15):
+                trading_intervals.append((hour, minute))
+    elif trading_frequency == '10min':
+        for hour in range(9, 16):  # 9 AM to 3 PM
+            for minute in range(0, 60, 10):
+                trading_intervals.append((hour, minute))
+    elif trading_frequency == '5min':
+        for hour in range(9, 16):  # 9 AM to 3 PM
+            for minute in range(0, 60, 5):
+                trading_intervals.append((hour, minute))
+    elif trading_frequency == '1min':
+        for hour in range(9, 16):  # 9 AM to 3 PM
+            for minute in range(0, 60):
+                trading_intervals.append((hour, minute))
+    else:
+        # Default to 10min if invalid frequency
+        for hour in range(9, 16):  # 9 AM to 3 PM
+            for minute in range(0, 60, 10):
+                trading_intervals.append((hour, minute))
 
     for interval in trading_intervals:
         hour, minute = interval
-        # Filter data for the current 10-minute interval
+        
+        # Calculate interval duration in minutes
+        if trading_frequency == 'hourly':
+            interval_duration = 60
+        elif trading_frequency == '30min':
+            interval_duration = 30
+        elif trading_frequency == '15min':
+            interval_duration = 15
+        elif trading_frequency == '10min':
+            interval_duration = 10
+        elif trading_frequency == '5min':
+            interval_duration = 5
+        elif trading_frequency == '1min':
+            interval_duration = 1
+        else:
+            interval_duration = 10
+        
+        # Filter data for the current interval
         interval_data = df[
             (df['timestamp'].dt.hour == hour) & 
             (df['timestamp'].dt.minute >= minute) & 
-            (df['timestamp'].dt.minute < minute + 10)
+            (df['timestamp'].dt.minute < minute + interval_duration)
         ]
 
         if interval_data.empty:
@@ -178,3 +223,51 @@ def identify_hourly_opportunities(intraday_data):
 
     # Convert to DataFrame
     return pd.DataFrame(opportunities)
+
+
+def compare_frequencies(intraday_data, initial_investment):
+    """
+    Compare arbitrage strategy performance across different trading frequencies.
+    
+    Parameters:
+    -----------
+    intraday_data : pandas.DataFrame
+        DataFrame containing intraday stock data
+    initial_investment : float
+        Initial investment amount
+        
+    Returns:
+    --------
+    pandas.DataFrame
+        DataFrame comparing performance across frequencies
+    """
+    # List of frequencies to compare
+    frequencies = ['hourly', '30min', '15min', '10min', '5min', '1min']
+    
+    # Dictionary to store results
+    results = []
+    
+    for freq in frequencies:
+        # Run simulation for this frequency
+        trades, ending_value, remaining_shares = simulate_trades(
+            intraday_data, 
+            initial_investment, 
+            trading_frequency=freq
+        )
+        
+        # Calculate number of trades
+        num_trades = len(trades)
+        
+        # Calculate return percentage
+        return_pct = ((ending_value - initial_investment) / initial_investment) * 100
+        
+        # Add to results
+        results.append({
+            'Trading Frequency': freq,
+            'Final Value': ending_value,
+            'Return (%)': return_pct,
+            'Number of Trades': num_trades
+        })
+    
+    # Convert to DataFrame
+    return pd.DataFrame(results)

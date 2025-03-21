@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import os
 from utils import get_intraday_data, validate_inputs
-from arbitrage import simulate_trades, calculate_buy_hold_return
+from arbitrage import simulate_trades, calculate_buy_hold_return, compare_frequencies
 
 # Set page title and layout
 st.set_page_config(
