@@ -1,0 +1,52 @@
+Prompt for Stock Market Simulator App:
+I want to build a simple stock market simulator focused on intra-day arbitrage opportunities. The application should allow a user to input a single stock ticker, an initial investment dollar amount, and a specific date. Using this information, the program should retrieve and analyze the intra-day price chart for that stock on the given date. The goal is to identify profitable opportunities throughout the trading day and simulate buying and selling to maximize the value of the initial investment by the close of the market. Shorting stocks is not allowed; the application can only profit by selling shares for more than their purchase price.
+Core Functionality:
+User Input: The application should have input fields for the user to provide:
+Stock Ticker Symbol (e.g., AAPL)
+Date (in a standard format like YYYY-MM-DD)
+Initial Investment Amount (in US dollars)
+Any API keys that maybe required (e.g. Polygon API) 
+Data Retrieval:
+The program should retrieve historical intra-day stock data for the specified ticker and date.
+Data Source: use the free tier of APIs from financial data provider Polygon.io (via their Python client library). 
+The application should be able to handle the intra-day data at whatever time intervals the chosen data source provides (e.g., per minute, per 5 minutes).
+Data Handling:
+The retrieved data should be stored and processed efficiently. Suggestion: Use Pandas DataFrames to manage the time-series data.
+Missing Data Handling: The application should gracefully handle missing data points. Consider strategies like:
+Forward-filling the last known price.
+Using linear interpolation if appropriate.
+Simply skipping time points with missing data.
+Arbitrage Simulation:
+The application should analyze the intra-day data to identify profitable arbitrage opportunities. A profitable opportunity is defined as a situation where the price of the stock increases within a given time window, allowing for a buy at a lower price and a subsequent sell at a higher price.
+The simulation should operate under the following assumptions:
+No Transaction Costs: Assume no brokerage fees or commissions for buying and selling.
+Perfect Order Execution: Assume that buy and sell orders are executed instantly at the observed price.
+Trading Frequency: The algorithm should calculate the most profitable buying opportunity and subsequent selling opportunity within each hour of the trading day. While the original plan was to trade only once per hour, this restriction can be made more flexible if it leads to significantly better outcomes (e.g., identifying multiple buy/sell opportunities within an hour if they arise and are profitable). The primary goal is still to maximize profit by the end of the day.
+Algorithm should allocate all investment at once — allowing fractional share purchases and sales.
+Output and Display:
+Intra-day Data Display: An area should display the raw intra-day data that was retrieved (e.g., as a table).
+Chart Generation: A button should allow the user to generate a graph or chart of the intra-day stock price data.
+Trade Log: A separate area should display a log of all the simulated trades that were enacted by the bot, including:
+Timestamp of the trade (buy or sell)
+Action (Buy/Sell)
+Price per share
+Number of shares traded
+Gain or loss on the sale (if applicable)
+Ending Value: The application should display the final value of the holdings (cash + value of any remaining shares) at the end of the trading day.
+Total Percentage return for the strategy 
+comparison to buy and hold strategy for the day. 
+User Interface (UI):
+The UI should be built using the Gradio library in Python, providing a thoughtful, modern, and efficient user experience.
+There should be clear input areas for the stock symbol, date, and initial investment amount.
+The display areas for data, the chart button, the trade log, and the ending value should be well-organized and easy to understand.
+Error and Exception Handling:
+The application should include robust error and exception handling to manage potential issues, including:
+Network Errors: Handle cases where the program cannot connect to the data source or the API request fails.
+Invalid User Input: Validate the format and content of the user inputs (e.g., ensuring the date is in the correct format, the ticker is valid).
+API Key Issues: If using an API that requires a key, handle potential authentication errors.
+Data Not Found: Handle cases where no intra-day data is available for the specified stock and date from the data source.
+Errors During Data Processing: Implement error handling for any issues that might arise during the analysis or calculation of trades.
+General Exceptions: Include a general exception handler to catch any unexpected errors and provide informative feedback to the user.
+Objective:
+The primary objective of this initial version is to demonstrate the feasibility of identifying and acting on intra-day price fluctuations to increase the initial investment by the close of the market on the specified date, without shorting stocks.
+This detailed prompt should provide a good starting point for an AI app builder to understand the requirements and generate the initial version of the stock market simulator.
