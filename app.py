@@ -376,16 +376,16 @@ if submit_button:
                             # Simulate trades for this frequency
                             trades_for_freq, _, _ = simulate_trades(
                                 intraday_data,
-                                initial_investment,
+                                investment_amount,
                                 trading_frequency=freq
                             )
                             
                             # Create a dataframe with timestamps
                             perf_df = pd.DataFrame(index=intraday_data['timestamp'])
-                            perf_df['value'] = initial_investment
+                            perf_df['value'] = investment_amount
                             
                             # Initialize with initial investment
-                            current_cash = initial_investment
+                            current_cash = investment_amount
                             current_shares = 0
                             
                             # Process each trade and update portfolio value
