@@ -221,6 +221,81 @@ if submit_button:
                             'Difference from Buy & Hold': '${:,.2f}'
                         }))
                         
+                        # Create a strategy comparison chart
+                        st.subheader("Strategy Performance Throughout the Day")
+                        
+                        # Calculate values over time for both strategies
+                        # First, create a dataframe with timestamps
+                        performance_df = pd.DataFrame(index=intraday_data['timestamp'])
+                        
+                        # Calculate buy and hold value over time
+                        first_price = intraday_data.iloc[0]['open']
+                        buy_hold_shares = investment_amount / first_price
+                        performance_df['buy_hold_value'] = intraday_data['close'] * buy_hold_shares
+                        
+                        # Calculate arbitrage strategy value over time
+                        # Start with initial investment
+                        performance_df['arbitrage_value'] = investment_amount
+                        
+                        # Update value based on trades
+                        if not trades.empty:
+                            for idx, trade in trades.iterrows():
+                                # Find all timestamps after this trade
+                                mask = performance_df.index >= trade['timestamp']
+                                
+                                if trade['action'] == 'BUY':
+                                    # When buying, cash decreases but share value increases
+                                    performance_df.loc[mask, 'arbitrage_value'] = trade['shares'] * intraday_data.loc[intraday_data['timestamp'] >= trade['timestamp'], 'close'].values
+                                elif trade['action'] == 'SELL':
+                                    # When selling, we convert to cash
+                                    performance_df.loc[mask, 'arbitrage_value'] = trade['shares'] * trade['price']
+                        
+                        # Create the comparison chart
+                        fig = go.Figure()
+                        
+                        # Add lines for each strategy
+                        fig.add_trace(go.Scatter(
+                            x=performance_df.index,
+                            y=performance_df['arbitrage_value'],
+                            mode='lines',
+                            name='Arbitrage Strategy',
+                            line=dict(color='green', width=2)
+                        ))
+                        
+                        fig.add_trace(go.Scatter(
+                            x=performance_df.index,
+                            y=performance_df['buy_hold_value'],
+                            mode='lines',
+                            name='Buy & Hold Strategy',
+                            line=dict(color='blue', width=2)
+                        ))
+                        
+                        # Add initial investment reference line
+                        fig.add_trace(go.Scatter(
+                            x=[performance_df.index.min(), performance_df.index.max()],
+                            y=[investment_amount, investment_amount],
+                            mode='lines',
+                            name='Initial Investment',
+                            line=dict(color='gray', width=1, dash='dash')
+                        ))
+                        
+                        # Update layout
+                        fig.update_layout(
+                            title=f"Strategy Value Comparison Over Time",
+                            xaxis_title="Time",
+                            yaxis_title="Portfolio Value ($)",
+                            height=400,
+                            legend=dict(
+                                orientation="h",
+                                yanchor="bottom",
+                                y=1.02,
+                                xanchor="right",
+                                x=1
+                            )
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                        
                         # Performance conclusion
                         if ending_value > buy_hold_value:
                             st.success(f"The arbitrage strategy outperformed buy & hold by ${ending_value - buy_hold_value:,.2f} ({arbitrage_return_pct - buy_hold_return_pct:.2f}%).")
