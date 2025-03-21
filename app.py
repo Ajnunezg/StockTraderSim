@@ -27,6 +27,12 @@ with st.sidebar.form("input_form"):
     ticker = st.text_input("Stock Ticker Symbol (e.g., AAPL)", value="AAPL")
     date = st.date_input("Select Date", value=datetime.now() - timedelta(days=7))
     investment_amount = st.number_input("Initial Investment Amount ($)", value=10000.0, min_value=100.0)
+    trading_frequency = st.selectbox(
+        "Trading Frequency", 
+        options=["hourly", "30min", "15min", "10min", "5min", "1min"],
+        index=3,  # Default to 10min
+        help="How often to check for trading opportunities"
+    )
     st.markdown("""
     <style>
     .tooltip {
@@ -115,10 +121,11 @@ if submit_button:
                         st.subheader("Arbitrage Trading Simulation")
                         
                         # Simulate trades
-                        with st.spinner('Simulating arbitrage trading strategy...'):
+                        with st.spinner(f'Simulating arbitrage trading strategy with {trading_frequency} frequency...'):
                             trades, ending_value, remaining_shares = simulate_trades(
                                 intraday_data, 
-                                initial_investment=investment_amount
+                                initial_investment=investment_amount,
+                                trading_frequency=trading_frequency
                             )
                         
                         if not trades.empty:
@@ -333,6 +340,81 @@ if submit_button:
                             st.error(f"The arbitrage strategy underperformed buy & hold by ${buy_hold_value - ending_value:,.2f} ({buy_hold_return_pct - arbitrage_return_pct:.2f}%).")
                         else:
                             st.info("The arbitrage strategy performed exactly the same as buy & hold.")
+                            
+                        # Trading frequency comparison
+                        st.subheader("Trading Frequency Comparison")
+                        st.write("Compare how different trading frequencies affect performance:")
+                        
+                        # Run comparison across different frequencies
+                        with st.spinner("Comparing performance across different trading frequencies..."):
+                            frequency_comparison = compare_frequencies(intraday_data, investment_amount)
+                        
+                        # Format the DataFrame for display
+                        formatted_comparison = frequency_comparison.style.format({
+                            'Final Value': '${:,.2f}',
+                            'Return (%)': '{:.2f}%'
+                        })
+                        
+                        # Display the comparison table
+                        st.dataframe(formatted_comparison, height=300)
+                        
+                        # Create a bar chart for visual comparison
+                        fig = go.Figure()
+                        
+                        # Add bars for final values
+                        fig.add_trace(go.Bar(
+                            x=frequency_comparison['Trading Frequency'],
+                            y=frequency_comparison['Final Value'],
+                            name='Final Value',
+                            marker_color='blue'
+                        ))
+                        
+                        # Add reference line for initial investment
+                        fig.add_trace(go.Scatter(
+                            x=frequency_comparison['Trading Frequency'],
+                            y=[investment_amount] * len(frequency_comparison),
+                            mode='lines',
+                            name='Initial Investment',
+                            line=dict(color='red', width=2, dash='dash')
+                        ))
+                        
+                        # Update layout
+                        fig.update_layout(
+                            title="Performance Comparison Across Trading Frequencies",
+                            xaxis_title="Trading Frequency",
+                            yaxis_title="Final Portfolio Value ($)",
+                            height=400,
+                            yaxis=dict(tickprefix="$")
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Find the best frequency
+                        best_freq_idx = frequency_comparison['Final Value'].idxmax()
+                        best_freq = frequency_comparison.iloc[best_freq_idx]
+                        
+                        st.write(f"**Best Trading Frequency:** {best_freq['Trading Frequency']} with a final value of ${best_freq['Final Value']:,.2f} ({best_freq['Return (%)']:.2f}%)")
+                        
+                        # Add a chart for number of trades by frequency
+                        fig = go.Figure()
+                        
+                        # Add bars for number of trades
+                        fig.add_trace(go.Bar(
+                            x=frequency_comparison['Trading Frequency'],
+                            y=frequency_comparison['Number of Trades'],
+                            name='Number of Trades',
+                            marker_color='green'
+                        ))
+                        
+                        # Update layout
+                        fig.update_layout(
+                            title="Number of Trades by Frequency",
+                            xaxis_title="Trading Frequency",
+                            yaxis_title="Number of Trades",
+                            height=350
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
                         
         except Exception as e:
             st.error(f"An error occurred during data processing: {str(e)}")
@@ -350,4 +432,5 @@ This application simulates an intraday arbitrage trading strategy using historic
 - Identify profitable arbitrage opportunities
 - Simulate trading with perfect execution
 - Compare performance against buy & hold
+- Analyze impact of different trading frequencies
 """)
