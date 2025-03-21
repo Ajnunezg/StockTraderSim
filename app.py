@@ -231,7 +231,7 @@ if submit_button:
                         # Calculate buy and hold value over time
                         first_price = intraday_data.iloc[0]['open']
                         buy_hold_shares = investment_amount / first_price
-                        performance_df['buy_hold_value'] = intraday_data['close'] * buy_hold_shares
+                        performance_df['buy_hold_value'] = intraday_data['close'].values * buy_hold_shares
                         
                         # Calculate arbitrage strategy value over time
                         # Start with initial investment
@@ -245,7 +245,7 @@ if submit_button:
                                 
                                 if trade['action'] == 'BUY':
                                     # When buying, cash decreases but share value increases
-                                    performance_df.loc[mask, 'arbitrage_value'] = trade['shares'] * intraday_data.loc[intraday_data['timestamp'] >= trade['timestamp'], 'close'].values
+                                    performance_df.loc[mask, 'arbitrage_value'] = trade['shares'] * intraday_data.loc[mask.values, 'close'].values
                                 elif trade['action'] == 'SELL':
                                     # When selling, we convert to cash
                                     performance_df.loc[mask, 'arbitrage_value'] = trade['shares'] * trade['price']
@@ -259,7 +259,7 @@ if submit_button:
                             y=performance_df['arbitrage_value'],
                             mode='lines',
                             name='Arbitrage Strategy',
-                            line=dict(color='green', width=2)
+                            line=dict(color='orange', width=2)
                         ))
                         
                         fig.add_trace(go.Scatter(
