@@ -358,33 +358,91 @@ if submit_button:
                         # Display the comparison table
                         st.dataframe(formatted_comparison, height=300)
                         
-                        # Create a bar chart for visual comparison
+                        # Create line chart to compare trading frequencies intraday
                         fig = go.Figure()
                         
-                        # Add bars for final values
-                        fig.add_trace(go.Bar(
-                            x=frequency_comparison['Trading Frequency'],
-                            y=frequency_comparison['Final Value'],
-                            name='Final Value',
-                            marker_color='blue'
-                        ))
+                        # Define colors for each frequency
+                        colors = {
+                            'hourly': '#1f77b4',  # blue
+                            '30min': '#ff7f0e',   # orange
+                            '15min': '#2ca02c',   # green
+                            '10min': '#d62728',   # red
+                            '5min': '#9467bd',    # purple
+                            '1min': '#8c564b'     # brown
+                        }
+                        
+                        # For each frequency, simulate and track portfolio value over time
+                        for freq in frequency_comparison['Trading Frequency']:
+                            # Simulate trades for this frequency
+                            trades_for_freq, _, _ = simulate_trades(
+                                intraday_data,
+                                initial_investment,
+                                trading_frequency=freq
+                            )
+                            
+                            # Create a dataframe with timestamps
+                            perf_df = pd.DataFrame(index=intraday_data['timestamp'])
+                            perf_df['value'] = initial_investment
+                            
+                            # Initialize with initial investment
+                            current_cash = initial_investment
+                            current_shares = 0
+                            
+                            # Process each trade and update portfolio value
+                            if not trades_for_freq.empty:
+                                for idx, trade in trades_for_freq.iterrows():
+                                    # Find timestamps after this trade
+                                    mask = perf_df.index >= trade['timestamp']
+                                    
+                                    if trade['action'] == 'BUY':
+                                        # Convert cash to shares
+                                        current_shares = trade['shares']
+                                        current_cash = 0
+                                        
+                                        # Update values after this point
+                                        for ts_idx, row in intraday_data[intraday_data['timestamp'] >= trade['timestamp']].iterrows():
+                                            perf_df.at[row['timestamp'], 'value'] = current_shares * row['close']
+                                            
+                                    elif trade['action'] == 'SELL':
+                                        # Convert shares to cash
+                                        current_cash = trade['shares'] * trade['price']
+                                        current_shares = 0
+                                        
+                                        # Update all future values to this cash amount
+                                        perf_df.loc[mask, 'value'] = current_cash
+                            
+                            # Add trace for this frequency
+                            fig.add_trace(go.Scatter(
+                                x=perf_df.index,
+                                y=perf_df['value'],
+                                mode='lines',
+                                name=freq,
+                                line=dict(color=colors.get(freq, '#000000'), width=2)
+                            ))
                         
                         # Add reference line for initial investment
                         fig.add_trace(go.Scatter(
-                            x=frequency_comparison['Trading Frequency'],
-                            y=[investment_amount] * len(frequency_comparison),
+                            x=[perf_df.index.min(), perf_df.index.max()],
+                            y=[investment_amount, investment_amount],
                             mode='lines',
                             name='Initial Investment',
-                            line=dict(color='red', width=2, dash='dash')
+                            line=dict(color='gray', width=1, dash='dash')
                         ))
                         
                         # Update layout
                         fig.update_layout(
-                            title="Performance Comparison Across Trading Frequencies",
-                            xaxis_title="Trading Frequency",
-                            yaxis_title="Final Portfolio Value ($)",
-                            height=400,
-                            yaxis=dict(tickprefix="$")
+                            title="Intraday Performance Comparison Across Trading Frequencies",
+                            xaxis_title="Time",
+                            yaxis_title="Portfolio Value ($)",
+                            height=500,
+                            yaxis=dict(tickprefix="$"),
+                            legend=dict(
+                                orientation="h",
+                                yanchor="bottom",
+                                y=1.02,
+                                xanchor="right",
+                                x=1
+                            )
                         )
                         
                         st.plotly_chart(fig, use_container_width=True)
