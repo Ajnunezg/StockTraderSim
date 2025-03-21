@@ -86,6 +86,9 @@ def simulate_trades(intraday_data, initial_investment, trading_frequency='10min'
                 (df['timestamp'].dt.hour == hour) & 
                 (df['timestamp'].dt.minute == minute)
             ]
+            # If no data for this exact minute, continue to next interval
+            if interval_data.empty:
+                continue
         else:
             # For other intervals, filter by hour and minute range
             interval_data = df[
