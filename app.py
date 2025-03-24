@@ -12,6 +12,34 @@ st.set_page_config(
     layout="wide"
 )
 
+# Initialize session state for API key management
+if 'api_key' not in st.session_state:
+    # Try to load API key from file
+    try:
+        with open('.api_key', 'r') as f:
+            st.session_state.api_key = f.read().strip()
+    except FileNotFoundError:
+        st.session_state.api_key = ""
+
+# Function to save API key
+def save_api_key(key):
+    st.session_state.api_key = key
+    # Save to file
+    with open('.api_key', 'w') as f:
+        f.write(key)
+    st.success("API key saved successfully!")
+
+# Function to clear API key
+def clear_api_key():
+    st.session_state.api_key = ""
+    # Remove file if exists
+    try:
+        import os
+        os.remove('.api_key')
+    except FileNotFoundError:
+        pass
+    st.success("API key cleared. You can now enter a new key.")
+
 # Main title
 st.title("Intraday Stock Market Arbitrage Simulator")
 st.markdown("""
@@ -33,39 +61,65 @@ with st.sidebar.form("input_form"):
         index=3,  # Default to 10min
         help="How often to check for trading opportunities"
     )
-    st.markdown("""
-    <style>
-    .tooltip {
-        position: relative;
-        display: inline-block;
-        cursor: help;
-    }
-    .tooltip .tooltiptext {
-        visibility: hidden;
-        width: 300px;
-        background-color: #333;
-        color: #fff;
-        text-align: center;
-        border-radius: 6px;
-        padding: 10px;
-        position: absolute;
-        z-index: 1;
-        bottom: 125%;
-        left: 50%;
-        margin-left: -150px;
-        opacity: 0;
-        transition: opacity 0.3s;
-    }
-    .tooltip:hover .tooltiptext {
-        visibility: visible;
-        opacity: 1;
-    }
-    </style>
-    <div>Polygon.io API Key <span class="tooltip">*<span class="tooltiptext">You need a Polygon.io API key to fetch stock data. Visit <a href="https://polygon.io/" target="_blank" style="color: #00BFFF;">polygon.io</a> to create a free account and get your API key.</span></span></div>
-    """, unsafe_allow_html=True)
-    api_key = st.text_input("", type="password", label_visibility="collapsed")
+    
+    # Show different UI based on whether API key is already saved
+    if st.session_state.api_key:
+        st.markdown("""
+        <div style="margin-bottom: 10px;">Polygon.io API Key: ✓ Saved</div>
+        """, unsafe_allow_html=True)
+        api_key = st.session_state.api_key
+    else:
+        st.markdown("""
+        <style>
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 300px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 10px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -150px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        </style>
+        <div>Polygon.io API Key <span class="tooltip">*<span class="tooltiptext">You need a Polygon.io API key to fetch stock data. Visit <a href="https://polygon.io/" target="_blank" style="color: #00BFFF;">polygon.io</a> to create a free account and get your API key.</span></span></div>
+        """, unsafe_allow_html=True)
+        new_api_key = st.text_input("", type="password", label_visibility="collapsed")
+        
+        # Add a checkbox to save the API key
+        save_key = st.checkbox("Save API key for future use")
+        if save_key:
+            api_key = new_api_key
+            if new_api_key:  # Only save if key is not empty
+                save_api_key(new_api_key)
+        else:
+            api_key = new_api_key
     
     submit_button = st.form_submit_button("Analyze Stock")
+
+# Add option to change API key
+with st.sidebar.expander("API Key Settings"):
+    if st.session_state.api_key:
+        if st.button("Change API Key"):
+            clear_api_key()
+            st.experimental_rerun()
+    else:
+        st.info("Enter and save your API key in the form above.")
 
 # Main content area
 if submit_button:
